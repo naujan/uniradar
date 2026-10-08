@@ -223,11 +223,7 @@ def parse_event_payload(data):
         "banner_url": str(data.get("banner_url") or "").strip() or None,
         "tags": tags,
     }
-
-
-# =========================================================
-# AUTH
-# =========================================================
+# Auth
 
 @api.route("/api/auth/login", methods=["POST"])
 def auth_login():
