@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+    <!--Nie usuwać-->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="UniRadar - znajdź wydarzenia edukacyjne w swojej okolicy.">
+    <meta name="theme-color" content="#007BFF">
+    <meta name="robots" content="index, follow">
+    <meta name="keywords" content="UniRadar, wydarzenia edukacyjne, szkoła, nauka, warsztaty, konferencje, Kraków">
+    <meta name="author" content="Zespół UniRadar">
+    <meta property="og:title" content="UniRadar - Znajdź wydarzenia edukacyjne w swojej okolicy">
+    <meta property="og:description" content="UniRadar to platforma umożliwiająca wyszukiwanie i przeglądanie wydarzeń edukacyjnych w Twojej okolicy.">
+    <meta property="og:image" content="{{ url_for('static', filename='images/logo_light.png') }}">
+    <title>UniRadar</title>
+    <link rel="icon" href="{{ url_for('static', filename='images/favicon.ico') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin="">
+    <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@800&display=swap" rel="stylesheet">
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin=""></script>
+    <script src="https://kit.fontawesome.com/c8b3b89ba9.js" crossorigin="anonymous"></script>
+</head>
+<body>
+    <header class="navbar">
+        <div class="uniradar-brand" id="uniradar-brand">
+            <img class="uniradar-symbol" src="{{ url_for('static', filename='images/logo.png') }}" alt="uniradar-logo">
+            <div class="slogan">
+                <h2 class="uniradar-name">UNI<span>RADAR</span></h2>
+                <p class="uniradar-text">Namierz nowe umiejętności</p>
+            </div>
+        </div>
+        <div class="search">
+            <i class="fa-solid fa-magnifying-glass"></i>
+            <input id="globalSearch" type="search" placeholder="Szukaj interesujących cię wydarzeń..." aria-label="Szukaj wydarzeń i instytucji">
+            <div id="searchResults" class="search-results" hidden></div>
+        </div>
+
+        <div class="nav-right">
+            <button type="button" class="bell" data-window="notifications" aria-controls="notificationsWindow" aria-expanded="false" aria-label="Powiadomienia">
+                <i class="fa-regular fa-bell"></i>
+                <span class="notification" id="notificationDot" hidden></span>
+            </button>
+            <button type="button" class="guest" data-window="profile" aria-controls="profileWindow" aria-expanded="false" id="accountButton">
+                <span class="guest-icon"><i class="fa-regular fa-user"></i></span>
+                <span class="guest-text">
+                    <strong id="accountName">Gość</strong>
+                    <span id="accountRole">Zaloguj się</span>
+                </span>
+                <i class="fa-solid fa-chevron-down"></i>
+            </button>
+        </div>
+    </header>
+
+    <main>
+        <div class="project-notification-box">
+            <div class="project-notification">
+                <img alt="logo" src="{{ url_for('static', filename='images/logo.png')}}">
+                <h2 class="uniradar-name">UNI<span>RADAR</span></h2>
+                <h3>Informacja</h3>
+                <p>Ta strona została wykonana w ramach projektu szkolnego. Wszystkie podane informacje są fałszywe.</p>
+                <button type="button" id="project-notification-accept">Przejdź dalej</button>
+            </div>
+        </div>
+        <div id="map"></div>
+        <div class="map-filter" id="mapFilter">
+    <button type="button" class="map-filter-toggle" id="filterToggle" aria-label="Filtruj wydarzenia po tagach" aria-expanded="false" aria-controls="filterPanel">
+        <i class="fa-solid fa-filter"></i>
+    </button>
+
+    <div class="map-filter-panel" id="filterPanel" hidden>
+        <div class="map-filter-heading">
+            <strong>Tagi wydarzeń</strong>
+            <button type="button" id="clearTagFilters">
+                Wyczyść
+            </button>
+        </div>
+
+        <div class="map-filter-tags" id="filterTags"></div>
+    </div>
+</div>
+        <div id="appStatus" class="app-status" role="status" aria-live="polite" hidden></div>
+
+        <section class="window notifications-window" id="notificationsWindow">
+            <div class="window-header">
+                <div><i class="fa-solid fa-bell"></i><strong>Powiadomienia</strong></div>
+                <div class="window-actions">
+                    <button type="button" class="window-minimize" data-minimize="notifications" aria-label="Minimalizuj"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="window-close" data-close="notifications" aria-label="Zamknij"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="window-content" id="notificationsList"><p>Brak nowych powiadomień.</p></div>
+        </section>
+
+        <section class="window events-window" id="eventsWindow">
+            <div class="window-header">
+                <div><i class="fa-solid fa-calendar-days"></i><strong>Nadchodzące wydarzenia</strong></div>
+                <div class="window-actions">
+                    <button type="button" class="window-minimize" data-minimize="events" aria-label="Minimalizuj"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="window-close" data-close="events" aria-label="Zamknij"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="window-content" id="upcomingEventsList">
+                <p class="empty-state">Ładowanie wydarzeń...</p>
+            </div>
+        </section>
+
+        <section class="window past-window" id="pastWindow">
+            <div class="window-header">
+                <div><i class="fa-solid fa-clock-rotate-left"></i><strong>Minione wydarzenia</strong></div>
+                <div class="window-actions">
+                    <button type="button" class="window-minimize" data-minimize="past" aria-label="Minimalizuj"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="window-close" data-close="past" aria-label="Zamknij"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="window-content" id="pastEventsList">
+                <p class="empty-state">Ładowanie wydarzeń...</p>
+            </div>
+        </section>
+
+        <section class="window chat-window" id="chatWindow">
+            <div class="window-header">
+                <div>
+                    <span id="chatStatusDot" class="chat-status-dot"></span>
+                    <i class="fa-solid fa-message"></i>
+                    <strong>Czat społeczności</strong>
+                </div>
+                <div class="window-actions">
+                    <button type="button" class="window-minimize" data-minimize="chat" aria-label="Minimalizuj"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="window-close" data-close="chat" aria-label="Zamknij"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <div class="chat-body">
+                <div id="chatLocked" class="chat-locked">
+                    <i class="fa-solid fa-lock"></i>
+                    <strong>Czat jest dostępny po zalogowaniu</strong>
+                    <p>Goście nie mogą łączyć się z pokojem ani wysyłać wiadomości.</p>
+                    <button type="button" class="secondary-button" id="openLoginFromChat">Zaloguj się</button>
+                </div>
+                <div class="window-content chat-messages" id="chatMessages" aria-live="polite"></div>
+                <div id="chatProfileCard" class="chat-profile-card" hidden>
+                    <button type="button" id="closeChatProfile" class="mini-close" aria-label="Zamknij profil"><i class="fa-solid fa-xmark"></i></button>
+                    <div class="mini-avatar"><i class="fa-regular fa-user"></i></div>
+                    <strong id="miniProfileNickname">—</strong>
+                    <span id="miniProfileName">—</span>
+                    <span id="miniProfileRole" class="role-badge">—</span>
+                    <p id="miniProfileBio">—</p>
+                </div>
+            </div>
+            <form class="chat-input" id="chatMessageForm">
+                <input id="chatMessageInput" type="text" maxlength="500" placeholder="Napisz wiadomość..." aria-label="Treść wiadomości" disabled>
+                <button id="chatSendButton" type="submit" aria-label="Wyślij wiadomość" disabled><i class="fa-solid fa-paper-plane"></i></button>
+            </form>
+        </section>
+
+        <section class="window add-window" id="addWindow">
+            <div class="window-header">
+                <div><i class="fa-solid fa-plus"></i><strong>Dodaj wydarzenie</strong></div>
+                <div class="window-actions">
+                    <button type="button" class="window-minimize" data-minimize="add" aria-label="Minimalizuj"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="window-close" data-close="add" aria-label="Zamknij"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+            <form class="window-form event-form" id="addEventForm">
+                <div class="form-note"><i class="fa-solid fa-shield-halved"></i> Wydarzenia z tej strony może dodawać wyłącznie konto z rolą nauczyciela.</div>
+
+                <label>Instytucja
+                    <select name="institution_id" id="eventInstitution" required></select>
+                </label>
+                <label>Nazwa
+                    <input name="name" maxlength="100" required placeholder="np. Warsztaty programistyczne">
+                </label>
+                <label>Opis
+                    <textarea name="description" required placeholder="Opisz wydarzenie..."></textarea>
+                </label>
+                <div class="form-row">
+                    <label>Start<input name="starts_at" type="datetime-local" required></label>
+                    <label>Koniec<input name="ends_at" type="datetime-local"></label>
+                </div>
+                <label>Adres wydarzenia
+                    <input name="address" maxlength="250" placeholder="Opcjonalnie — może być inny niż adres instytucji">
+                </label>
+                <label>Baner
+                    <input name="banner_file" id="eventBannerFile" type="file" accept="image/jpeg,image/png,image/webp,image/gif">
+                    <input name="banner_url" type="hidden">
+                </label>
+                <img id="eventBannerPreview" class="banner-preview" alt="Podgląd banera wydarzenia" hidden>
+                <button type="button" id="clearEventBanner" class="secondary-button inline-button">Usuń baner</button>
+
+                <label>Tagi
+                    <select name="tag_ids" id="eventTags" multiple></select>
+                    <span class="field-help">Ctrl/Cmd + klik pozwala wybrać kilka tagów.</span>
+                </label>
+
+                <div class="form-row">
+                    <label>Latitude<input name="latitude" id="eventLatitude" type="number" step="any" readonly></label>
+                    <label>Longitude<input name="longitude" id="eventLongitude" type="number" step="any" readonly></label>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="pickEventLocation" class="secondary-button">Wybierz punkt na mapie</button>
+                    <button type="button" id="clearEventLocation" class="secondary-button">Wyczyść punkt</button>
+                </div>
+                <p id="eventLocationHint" class="field-help">Współrzędne są opcjonalne.</p>
+
+                <button type="submit" class="primary-button" id="addEventSubmit"><i class="fa-solid fa-plus"></i> Dodaj wydarzenie</button>
+                <p id="addEventStatus" class="form-status" role="status"></p>
+            </form>
+        </section>
+
+        <section class="window profile-window" id="profileWindow">
+            <div class="window-header">
+                <div><i class="fa-solid fa-user"></i><strong>Twój profil</strong></div>
+                <div class="window-actions">
+                    <button type="button" class="window-minimize" data-minimize="profile" aria-label="Minimalizuj"><i class="fa-solid fa-minus"></i></button>
+                    <button type="button" class="window-close" data-close="profile" aria-label="Zamknij"><i class="fa-solid fa-xmark"></i></button>
+                </div>
+            </div>
+
+            <form class="window-form" id="loginForm">
+                <div class="login-info">
+                    <div class="big-user"><i class="fa-regular fa-user"></i></div>
+                    <h2>Zaloguj się</h2>
+                    <p>Po zalogowaniu możesz korzystać z czatu i dodawać opinie. Formularz wydarzeń jest dostępny dla nauczycieli.</p>
+                </div>
+                <label>
+                    E-mail szkolny
+                        <span class="school-email">
+                            <input
+                                type="text"
+                                id="schoolLogin"
+                                placeholder="twoj.login"
+                                autocomplete="username"
+                                pattern="[^@\s]+"
+                                title="Wpisz tylko login, bez @ i spacji"
+                                required
+                            >
+                        <span class="email-domain">@zse.krakow.pl</span>
+                    </span>
+                </label>
+                <label>Hasło
+                    <input type="password" name="password" placeholder="••••••••" autocomplete="current-password" required>
+                </label>
+                <button type="submit" class="primary-button">Zaloguj się</button>
+                <p id="loginStatus" class="form-status" role="status"></p>
+            </form>
+
+            <div class="window-form profile-summary" id="profileSummary" hidden>
+                <div class="login-info">
+                    <div class="big-user"><i class="fa-solid fa-user-check"></i></div>
+                    <h2 id="profileNickname">—</h2>
+                    <p id="profileFullName">—</p>
+                </div>
+                <div class="profile-field"><span>Rola</span><strong id="profileRole">—</strong></div>
+                <div class="profile-field"><span>E-mail</span><strong id="profileEmail">—</strong></div>
+                <div class="profile-field profile-bio"><span>Bio</span><p id="profileBio">Brak bio.</p></div>
+                <button type="button" class="secondary-button" id="logoutButton">Wyloguj się</button>
+            </div>
+        </section>
+
+        <nav class="dock" aria-label="Menu okien">
+            <button type="button" class="dock-button" data-window="events" aria-controls="eventsWindow" aria-expanded="false"><i class="fa-solid fa-calendar-days"></i><span>Wydarzenia</span></button>
+            <button type="button" class="dock-button" data-window="past" aria-controls="pastWindow" aria-expanded="false"><i class="fa-solid fa-clock-rotate-left"></i><span>Minione</span></button>
+            <button type="button" class="dock-button" data-window="chat" aria-controls="chatWindow" aria-expanded="false"><i class="fa-solid fa-message"></i><span>Czat</span></button>
+            <button type="button" class="dock-button add" data-window="add" aria-controls="addWindow" aria-expanded="false" aria-label="Dodaj wydarzenie" id="addEventDock"><i class="fa-solid fa-plus"></i></button>
+            <button type="button" class="dock-button" data-window="profile" aria-controls="profileWindow" aria-expanded="false"><i class="fa-solid fa-user"></i><span>Profil</span></button>
+        </nav>
+
+        <aside class="side-panel left-side" id="placeDetailsSidebar" aria-label="Szczegóły miejsca lub wydarzenia">
+            <div class="side-panel-header">
+                <button class="side-panel-close" id="closePlaceDetails" type="button" aria-label="Zamknij panel"><i class="fa-solid fa-xmark"></i></button>
+            </div>
+            <div class="side-panel-info">
+                <div class="side-panel-content" id="placeDetailsContent">
+                    <p class="side-panel-placeholder">Kliknij marker albo wydarzenie, aby zobaczyć szczegóły.</p>
+                </div>
+            </div>
+        </aside>
+        </main>
+
+    <footer class="footer">
+        <p>&copy; 2026 UniRadar Team</p>
+        <p>Wszystkie przedstawione informacje są fikcyjne.</p>
+    </footer>
+
+    <script src="https://cdn.socket.io/4.8.1/socket.io.min.js"></script>
+    <script src="{{ url_for('static', filename='js/script.js') }}"></script>
+</body>
+</html>
