@@ -153,7 +153,7 @@ main {
     box-shadow: none !important;
 }
 .leaflet-top {
-    z-index:500;
+    z-index:500 !important;
     }
 .leaflet-control-zoom a {
     width: 46px !important;
